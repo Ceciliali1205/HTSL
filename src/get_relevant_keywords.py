@@ -19,12 +19,8 @@ DO NOT OUTPUT CODE."""
 
 
 def get_events(tags, num_events):
-    retrieve_info(kb, keywords, 5)
+    return retrieve_info(kb, tags, num_events)
 
 
-keywords = get_relevant_keywords("I want to find a student event about AI")
-print(keywords)
 
-events = retrieve_info(kb, keywords, 5)
-print(events)
 

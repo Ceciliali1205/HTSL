@@ -6,7 +6,8 @@ import time
 
 
 def load_csv_faq(csv_files: list[str]):
-    faq_vectors = []
+    questions = []
+    metadatas = []
 
     for csv_file in csv_files:
         # Load CSV file from the given path
@@ -22,24 +23,20 @@ def load_csv_faq(csv_files: list[str]):
 
         i = 0
         while i < len_faq:
-            question = question_list[i]
-            answer = answers_list[i]
-
-            vector = f"""Question: {question}
-Answer: {answer}"""
-            faq_vectors.append(vector)
+            questions.append(question_list[i])
+            metadatas.append({"event_id": answers_list[i]})
             i += 1
 
-    return faq_vectors
+    return questions, metadatas
 
 def create_knowledge_base(documents_list):
     embeddings = BedrockEmbeddings(model_id=BedrockModel.TITAN_EMBEDDINGS_V2.value)
 
-    def populate_faq_db(faq_vectors, num):
+    def populate_faq_db(questions, metadatas, num):
         start = time.time()
-        ##print (f'Now you have {len(faq_vectors)} faq documents')
+        ##print (f'Now you have {len(questions)} faq documents')
 
-        db = FAISS.from_texts(faq_vectors, embeddings)
+        db = FAISS.from_texts(questions, embeddings, metadatas=metadatas)
         end = time.time()
 
         ##print("KB Base Population Time: ", end - start)
@@ -60,7 +57,8 @@ def create_knowledge_base(documents_list):
     doc_content = documents_list[0]["content"]
 
     if doc_type == "FAQ":
-        main_index_name = populate_faq_db(doc_content, 0)
+        questions, metadatas = doc_content
+        main_index_name = populate_faq_db(questions, metadatas, 0)
         main_db = FAISS.load_local(main_index_name, embeddings, allow_dangerous_deserialization=True)
 
     i = 1
@@ -77,13 +75,8 @@ def create_knowledge_base(documents_list):
         ##print(f"Document Content: {doc_content}\n")
 
         if doc_type == "FAQ":
-            # ##print("Adding in Texts")
-            # new_db = FAISS.from_texts(doc_content, embeddings)
-
-            # # Merge Database into Main DB
-            # main_db.merge_from(new_db)
-
-            new_db_name = populate_faq_db(doc_content, i)
+            questions, metadatas = doc_content
+            new_db_name = populate_faq_db(questions, metadatas, i)
             new_db = FAISS.load_local(new_db_name, embeddings)
             main_db.merge_from(new_db)
 
@@ -104,14 +97,26 @@ def create_kb(urls):
         download_url = (
             f"https://docs.google.com/spreadsheets/d/{file_id}/export?format=csv"
         )
-        faq_vectors = load_csv_faq([download_url])
+        questions, metadatas = load_csv_faq([download_url])
         #####print("faq_vectors: ", faq_vectors)
 
         # Any Documnets - docx, pdf, txt
         # FAQ - list of string with faq info
-        documents.append({"type": "FAQ", "content": faq_vectors})
+        documents.append({"type": "FAQ", "content": (questions, metadatas)})
 
     return create_knowledge_base(documents)
+
+def retrieve_info(db: FAISS, query, k):
+    start = time.time()
+    similar_response = db.similarity_search(query, k=k)
+
+    results = [{'event_id': doc.metadata['event_id'], 'content': doc.page_content} for doc in similar_response]
+    end = time.time()
+
+    ##print("Retrival Time: ", end - start)
+    return results
+
+
 
 def load_kb():
     return FAISS.load_local("faq_0", BedrockEmbeddings(model_id=BedrockModel.TITAN_EMBEDDINGS_V2.value), allow_dangerous_deserialization=True)
