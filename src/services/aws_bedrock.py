@@ -21,8 +21,8 @@ class BedrockModel(Enum):
     LLAMA_3_1_8B_INSTRUCT = "meta.llama3-1-8b-instruct-v1:0"
     LLAMA_3_2_3B_INSTRUCT = "arn:aws:bedrock:us-west-2:365396090247:inference-profile/us.meta.llama3-2-3b-instruct-v1:0"
     LLAMA_3_2_11B_INSTRUCT = "arn:aws:bedrock:us-west-2:365396090247:inference-profile/us.meta.llama3-2-11b-instruct-v1:0"
-
-
+    CLAUDE_3_INSTANT = "anthropic.claude-instant-v1"
+    LLAMA_70B = "meta.llama3-70b-instruct-v1:0"
 def createEmbedding(model : BedrockModel, text : str) -> list[float]:
 
     body = json.dumps({
@@ -42,12 +42,13 @@ def createEmbedding(model : BedrockModel, text : str) -> list[float]:
     return responseBody.get('embedding')
 
 def llmInference(model : BedrockModel, prompt : str, userInput : str | None = None) -> str:
-    fullPrompt = f"{prompt}\n\nInput: {userInput}" if userInput else prompt
+    fullPrompt = f"Human: {prompt}\nUser Input:{userInput}\nAssistant:" if userInput else prompt
 
     body = json.dumps({
         "prompt": fullPrompt,
         "temperature": 0.7,
         "top_p": 0.9,
+        # "max_tokens_to_sample": 200
     })
 
 
@@ -55,7 +56,7 @@ def llmInference(model : BedrockModel, prompt : str, userInput : str | None = No
         modelId=model.value,
         body=body,
         contentType='application/json',
-        accept='application/json'
+        accept='application/json',
     )
 
     responseBody = json.loads(response.get('body').read())

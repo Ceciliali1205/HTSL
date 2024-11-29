@@ -1,7 +1,7 @@
 from langchain.vectorstores import FAISS
-
+from langchain_aws import BedrockEmbeddings
 import pandas as pd
-
+from src.services.aws_bedrock import BedrockModel
 import time
 
 
@@ -33,7 +33,7 @@ Answer: {answer}"""
     return faq_vectors
 
 def create_knowledge_base(documents_list):
-    embeddings = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
+    embeddings = BedrockEmbeddings(model_id=BedrockModel.TITAN_EMBEDDINGS_V2.value)
 
     def populate_faq_db(faq_vectors, num):
         start = time.time()
@@ -61,7 +61,7 @@ def create_knowledge_base(documents_list):
 
     if doc_type == "FAQ":
         main_index_name = populate_faq_db(doc_content, 0)
-        main_db = FAISS.load_local(main_index_name, embeddings)
+        main_db = FAISS.load_local(main_index_name, embeddings, allow_dangerous_deserialization=True)
 
     i = 1
     # Go through dbs and merge them
@@ -112,3 +112,7 @@ def create_kb(urls):
         documents.append({"type": "FAQ", "content": faq_vectors})
 
     return create_knowledge_base(documents)
+
+def load_kb():
+    return FAISS.load_local("faq_0", BedrockEmbeddings(model_id=BedrockModel.TITAN_EMBEDDINGS_V2.value), allow_dangerous_deserialization=True)
+
